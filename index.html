@@ -3,37 +3,50 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
   <title>تسجيل حضور/انصراف الموظفين</title>
   <link rel="stylesheet" href="styles.css" />
+
+  <!-- رسالة قصيرة في حال كان الجافاسكربت مقفول -->
+  <noscript>
+    <style>
+      .no-js { background:#ffe9e9; color:#b00020; padding:12px; border-radius:8px; margin:12px 0; }
+    </style>
+  </noscript>
 </head>
+
 <body>
   <main class="container">
 
     <!-- اللوجو أعلى الصفحة -->
-    <div class="top-logo">
+    <div class="top-logo" aria-label="شعار الشركة">
       <img src="logo.png" alt="HURMOZ Logo" />
     </div>
 
     <header class="page-header">
       <h1>تسجيل حضور/انصراف الموظفين</h1>
       <p class="lead">
-        اختر اسمك ثم اضغط تسجيل الآن. الموقع يلتقط <span style="white-space:nowrap">(الدولة – المحافظة – المكان بالضبط)</span>
-        ويتم حفظ آخر سجل محليًا لكل موظف للعرض السريع.
+        اختر اسمك ثم اضغط <strong>تسجيل الآن</strong>. الموقع يلتقط
+        <span style="white-space:nowrap">(الدولة – المحافظة – المكان بالضبط)</span>
+        ويتم حفظ <strong>آخر سجل</strong> محليًا لكل موظف للعرض السريع.
       </p>
+      <noscript><div class="no-js">هذه الصفحة تحتاج إلى تفعيل JavaScript.</div></noscript>
     </header>
 
-    <section class="form-card">
+    <section class="form-card" aria-labelledby="formTitle">
+      <h2 id="formTitle" class="sr-only">نموذج تسجيل الحضور/الانصراف</h2>
+
       <div class="row">
         <label for="search">بحث عن الاسم</label>
         <div class="search-wrap">
           <input id="search" type="text" class="input" placeholder="ابدأ الكتابة للبحث…" autocomplete="off" />
-          <ul id="suggestions" class="suggestions hidden"></ul>
+          <ul id="suggestions" class="suggestions hidden" role="listbox" aria-label="اقتراحات الأسماء"></ul>
         </div>
       </div>
 
       <div class="row">
         <label for="employee">اسم الموظف</label>
-        <select id="employee" class="select">
+        <select id="employee" class="select" aria-required="true">
           <option value="" selected>— اختر —</option>
           <!-- تُملأ من JS -->
         </select>
@@ -50,19 +63,20 @@
       <div class="actions">
         <button id="submitBtn" class="btn btn-accent" type="button">تسجيل الآن</button>
         <button id="clearLocalBtn" class="btn btn-ghost" type="button">مسح السجلات المحلية</button>
-        <span id="statusDot" class="status ok">جاهز</span>
-        <span id="accuracyBadge" class="status" style="margin-inline-start:8px;">دقة: —</span>
+        <span id="statusDot" class="status ok" aria-live="polite">جاهز</span>
+        <span id="accuracyBadge" class="status" style="margin-inline-start:8px;" aria-live="polite">دقة: —</span>
       </div>
 
-      <div id="hint" class="hint"></div>
+      <div id="hint" class="hint" aria-live="polite"></div>
     </section>
 
-    <section class="table-card">
-      <div class="table-head">
-        <div>الاسم</div>
-        <div>الحركة</div>
-        <div>الموقع</div>
-        <div>الوقت</div>
+    <section class="table-card" aria-labelledby="lastLogsTitle">
+      <h2 id="lastLogsTitle" class="sr-only">آخر السجلات</h2>
+      <div class="table-head" role="row">
+        <div role="columnheader">الاسم</div>
+        <div role="columnheader">الحركة</div>
+        <div role="columnheader">الموقع</div>
+        <div role="columnheader">الوقت</div>
       </div>
       <div id="logBody" class="table-body">
         <div class="empty">لا توجد سجلات بعد</div>
@@ -70,6 +84,8 @@
     </section>
 
   </main>
-  <script src="app.js"></script>
+
+  <!-- مهم: defer عشان الكود يشتغل بعد ما العناصر تتبني -->
+  <script src="app.js" defer></script>
 </body>
 </html>
