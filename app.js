@@ -1,14 +1,14 @@
 /* ========= إعدادات عامة ========= */
 
-/** ضع هنا رابط Airtable Automation Webhook (من Automations → When webhook received → Copy URL) */
+// حط هنا رابط الـ Airtable Automation Webhook (بتاعك)
 const AIRTABLE_WEBHOOK_URL =
   "https://hooks.airtable.com/workflows/v1/genericWebhook/appzxGL0hH1jpxMM7/wflWj5y96rbaODAAA/wtrzdV1KGkmzggQA9";
 
 /* ===== تخزين/عرض محلي: نحتفظ بآخر تسجيل لكل موظف فقط ===== */
 const SAVE_LOCALLY   = true;  // نخزن آخر تسجيل (يستبدل القديم)
-const SHOW_LOCAL_LOG = true;  // نعرض بطاقة واحدة بآخر تسجيل للموظف المختار
+const SHOW_LOCAL_LOG = true;  // نعرض آخر تسجيل للموظف المختار
 
-// أسماء الموظفين
+// أسماء الموظفين (عدّلها براحتك)
 const EMPLOYEES = [
   "Amna Al-Shehhi","Saman","Sufiyan","Subhan","Vangelyn","Swaroop","Nada Farag","Aya","Maysa",
   "Rajeh","Jaber","Ali amallah","Riham Al-Abri","Maryam Al-Futaisi","Salma Al-Shibli","Raqia Al-Suri",
@@ -39,8 +39,15 @@ let currentAction = "دخول";
   if (!SHOW_LOCAL_LOG && logBody)      logBody.style.display = "none";
   if (!SAVE_LOCALLY  && clearLocalBtn) clearLocalBtn.style.display = "none";
 
+  // إظهار حالة الربط
+  if (statusDot) {
+    const ok = /^https:\/\/hooks\.airtable\.com\/workflows\/v1\/genericWebhook\//.test(AIRTABLE_WEBHOOK_URL);
+    statusDot.classList.remove("ok","warn","err");
+    statusDot.classList.add(ok ? "ok":"err");
+    statusDot.textContent = ok ? "جاهز" : "رابط Airtable Webhook غير مضبوط.";
+  }
+
   if (SHOW_LOCAL_LOG) renderLocalLog();
-  setStatus("ok","جاهز");
 })();
 
 /* ========= تعبئة قائمة الأسماء ========= */
@@ -54,7 +61,7 @@ function fillEmployees(list){
   });
 }
 
-/* ========= اقتراحات البحث الفورية ========= */
+/* ========= الاقتراحات ========= */
 function showSuggestions(items){
   if (!suggestionsEl) return;
   suggestionsEl.innerHTML = "";
@@ -91,11 +98,6 @@ if (searchInput){
   });
 }
 
-/* ========= تغيير الاسم -> نعرض آخر تسجيل له فقط ========= */
-if (employeeSelect && SHOW_LOCAL_LOG){
-  employeeSelect.addEventListener("change", ()=> renderLocalLog());
-}
-
 /* ========= تبديل الحركة ========= */
 if (btnIn)  btnIn.addEventListener("click",()=> setActionButton("دخول"));
 if (btnOut) btnOut.addEventListener("click",()=> setActionButton("انصراف"));
@@ -117,17 +119,17 @@ async function onSubmit(){
   const name=(employeeSelect?.value||"").trim();
   if(!name){ return setStatus("err","اختر اسم الموظف أولًا."); }
 
-  if (!AIRTABLE_WEBHOOK_URL){
-    return setStatus("err","أضف رابط Airtable Webhook في app.js.");
+  if(!AIRTABLE_WEBHOOK_URL || !/^https:\/\/hooks\.airtable\.com\/workflows\/v1\/genericWebhook\//.test(AIRTABLE_WEBHOOK_URL)){
+    return setStatus("err","رابط Airtable Webhook غير مضبوط. عدّله في app.js.");
   }
 
   setStatus("warn","جارٍ تحسين دقة الموقع...");
   try{
-    // حاول الوصول لدقة ≤ 30م أو سلّم أفضل نتيجة بعد 10 ثواني
+    // حاول نوصل ≤ 30م أو نسلم أفضل نتيجة بعد 10 ثواني
     const pos = await getBestPosition({ desiredAccuracy: 30, hardTimeoutMs: 10000 });
     const { latitude, longitude, accuracy } = pos.coords;
 
-    const pretty = await reverseGeocodePrecise(latitude, longitude); // الدولة – المحافظة – المكان بالضبط
+    const pretty = await reverseGeocodePrecise(latitude, longitude); // نص عربي: الدولة – المحافظة – المكان
 
     const now = new Date();
     const record = {
@@ -142,27 +144,18 @@ async function onSubmit(){
       time_hhmm: now.toLocaleTimeString("ar-EG",{hour:"2-digit",minute:"2-digit"})
     };
 
-    // خزّن محليًا: آخر تسجيل فقط (يستبدل القديم)
+    // خزّن محليًا: آخر تسجيل فقط لكل اسم
     if (SAVE_LOCALLY) upsertLocalRecord(record);
 
-    // إرسال إلى Airtable
+    // إرسال JSON صريح للويبهوك (Airtable Automation)
     await sendToAirtableWebhook(record);
 
     setStatus("ok","تم التسجيل بنجاح.");
     if (accuracyBadge) accuracyBadge.textContent = `دقة: ${record.gps_accuracy_m}م`;
     if (hint)           hint.textContent = `الموقع: ${record.address_text}`;
-
-    console.log("تم إرسال Webhook:", {
-      name: record.name,
-      action: record.action,
-      address_text: record.address_text,
-      lat: record.lat,
-      lon: record.lon,
-      timestamp_iso: record.timestamp_iso,
-      accuracy: record.gps_accuracy_m ?? null
-    });
-
     if (SHOW_LOCAL_LOG) renderLocalLog();
+
+    console.log("تم إرسال Webhook:", record);
 
   }catch(err){
     console.error(err);
@@ -173,6 +166,7 @@ async function onSubmit(){
 
 /* ========= إرسال إلى Airtable Webhook ========= */
 async function sendToAirtableWebhook(record){
+  // ابعت القيم الفعلية (مش أسماء الحقول)
   const payload = {
     name: record.name,
     action: record.action,
@@ -183,29 +177,19 @@ async function sendToAirtableWebhook(record){
     accuracy: record.gps_accuracy_m ?? null
   };
 
-  // المحاولة الأساسية: JSON بترميز UTF-8 (أفضل شيء لعربي)
   try {
     const res = await fetch(AIRTABLE_WEBHOOK_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json; charset=UTF-8" },
       body: JSON.stringify(payload)
     });
-    // لو السيرفر رفض أو حصل CORS، جرّب خطة بديلة
-    if (!res || !res.ok) throw new Error("JSON send failed");
+    // لو CORS يمنع قراءة الرد عادي، المهم الطلب يوصل.
+    try { console.log("Webhook response:", await res.clone().text()); } catch(_) {}
   } catch (e) {
-    console.warn("Fallback to FormData because JSON send failed:", e?.message || e);
-    // المحاولة الاحتياطية: FormData (بعض البيئات بتسمح بيها أسهل)
-    const fd = new FormData();
-    for (const [k,v] of Object.entries(payload)) fd.append(k, String(v ?? ""));
-    try {
-      await fetch(AIRTABLE_WEBHOOK_URL, { method: "POST", body: fd });
-    } catch (e2) {
-      console.error("Airtable webhook error (FormData fallback)", e2);
-      setStatus("err","تعذّر إرسال البيانات إلى Airtable.");
-      throw e2;
-    }
+    console.error("Airtable webhook error", e);
   }
 }
+
 
 /* ========= مسح السجل المحلي ========= */
 if (clearLocalBtn){
@@ -307,7 +291,7 @@ function getLastRecordFor(name){
   return map[name] || null;
 }
 
-/* ========= عرض بطاقة السجل الأخير للموظف ========= */
+/* ========= عرض آخر سجل للموظف ========= */
 function renderLocalLog(){
   if (!SHOW_LOCAL_LOG || !logBody) return;
 
@@ -331,7 +315,6 @@ function renderLocalLog(){
     return;
   }
 
-  // بطاقة واحدة فقط
   const wrap=document.createElement("div"); wrap.className="row-item";
 
   const name=document.createElement("div"); name.textContent=r.name;
