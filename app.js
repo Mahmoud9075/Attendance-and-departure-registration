@@ -1,6 +1,6 @@
 /* ========= إعدادات عامة ========= */
 
-// رابط Zapier Webhook الخاص بك (Trigger: Webhooks by Zapier → Catch Hook)
+// رابط Zapier Webhook (Catch Hook)
 const ZAPIER_WEBHOOK_URL = "https://hooks.zapier.com/hooks/catch/24367588/uhbefux/";
 
 /* ===== تخزين/عرض محلي ===== */
@@ -136,7 +136,7 @@ async function onSubmit(){
     await sendToZapier(record);
 
     setStatus("ok","تم التسجيل بنجاح.");
-    if (accuracyBadge) accuracyBadge.textContent = `دقة: ${record.accurي}م`.replace("accurي","accuracy"); // حماية بسيطة لو محرك غيّر الحروف
+    if (accuracyBadge) accuracyBadge.textContent = `دقة: ${record.accuracy}م`;
     if (hint)           hint.textContent = `الموقع: ${record.address_text}`;
     if (SHOW_LOCAL_LOG) renderLocalLog();
 
@@ -149,7 +149,6 @@ async function onSubmit(){
 
 /* ========= إرسال إلى Zapier Webhook ========= */
 async function sendToZapier(record){
-  // الإرسال الموصى به: JSON + UTF-8 (يحافظ على العربي)
   try {
     const res = await fetch(ZAPIER_WEBHOOK_URL, {
       method: "POST",
@@ -160,12 +159,26 @@ async function sendToZapier(record){
   } catch (e) {
     console.error("Zapier webhook error", e);
   }
+}
 
-  /* // بديل (لو شوفت ???? جوه Zapier Trigger): استخدم FormData وغيّر المابينج في Zapier لـ payload.*
-  const fd = new FormData();
-  for (const [k,v] of Object.entries(record)) fd.append(k, String(v ?? ""));
-  await fetch(ZAPIER_WEBHOOK_URL, { method:"POST", body: fd });
-  */
+/* ========= زر اختبار (اختياري من الكونسول) ========= */
+window.sendTest = function(){
+  fetch(ZAPIER_WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "Mahmoud Ibrahim",
+      action: "دخول",
+      timestamp_iso: new Date().toISOString(),
+      address_text: "مصر – الجيزة – شارع الجمهورية",
+      lat: 30.0444,
+      lon: 31.2357,
+      accuracy: 15
+    })
+  })
+  .then(r => r.text())
+  .then(t => alert("تم الإرسال: " + t))
+  .catch(console.error);
 }
 
 /* ========= تحديد الموقع (أفضل نتيجة خلال مهلة) ========= */
