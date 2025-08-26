@@ -1,14 +1,13 @@
 /* ========= إعدادات عامة ========= */
 
-// حط هنا رابط الـ Airtable Automation Webhook (بتاعك)
-const AIRTABLE_WEBHOOK_URL =
-  "https://hooks.airtable.com/workflows/v1/genericWebhook/appzxGL0hH1jpxMM7/wflWj5y96rbaODAAA/wtrzdV1KGkmzggQA9";
+// رابط Airtable Webhook الخاص بيك (اللي طلعته من Automation)
+const AIRTABLE_WEBHOOK_URL = "https://hooks.airtable.com/workflows/v1/genericWebhook/appzxGL0hH1jpxMM7/wflWj5y96rbaODAAA/wtrzdV1KGkmzggQA9";
 
 /* ===== تخزين/عرض محلي: نحتفظ بآخر تسجيل لكل موظف فقط ===== */
-const SAVE_LOCALLY   = true;  // نخزن آخر تسجيل (يستبدل القديم)
-const SHOW_LOCAL_LOG = true;  // نعرض آخر تسجيل للموظف المختار
+const SAVE_LOCALLY   = true;  
+const SHOW_LOCAL_LOG = true;  
 
-// أسماء الموظفين (عدّلها براحتك)
+// أسماء الموظفين
 const EMPLOYEES = [
   "Amna Al-Shehhi","Saman","Sufiyan","Subhan","Vangelyn","Swaroop","Nada Farag","Aya","Maysa",
   "Rajeh","Jaber","Ali amallah","Riham Al-Abri","Maryam Al-Futaisi","Salma Al-Shibli","Raqia Al-Suri",
@@ -39,14 +38,6 @@ let currentAction = "دخول";
   if (!SHOW_LOCAL_LOG && logBody)      logBody.style.display = "none";
   if (!SAVE_LOCALLY  && clearLocalBtn) clearLocalBtn.style.display = "none";
 
-  // إظهار حالة الربط
-  if (statusDot) {
-    const ok = /^https:\/\/hooks\.airtable\.com\/workflows\/v1\/genericWebhook\//.test(AIRTABLE_WEBHOOK_URL);
-    statusDot.classList.remove("ok","warn","err");
-    statusDot.classList.add(ok ? "ok":"err");
-    statusDot.textContent = ok ? "جاهز" : "رابط Airtable Webhook غير مضبوط.";
-  }
-
   if (SHOW_LOCAL_LOG) renderLocalLog();
 })();
 
@@ -61,7 +52,7 @@ function fillEmployees(list){
   });
 }
 
-/* ========= الاقتراحات ========= */
+/* ========= البحث الفوري ========= */
 function showSuggestions(items){
   if (!suggestionsEl) return;
   suggestionsEl.innerHTML = "";
@@ -119,43 +110,37 @@ async function onSubmit(){
   const name=(employeeSelect?.value||"").trim();
   if(!name){ return setStatus("err","اختر اسم الموظف أولًا."); }
 
-  if(!AIRTABLE_WEBHOOK_URL || !/^https:\/\/hooks\.airtable\.com\/workflows\/v1\/genericWebhook\//.test(AIRTABLE_WEBHOOK_URL)){
-    return setStatus("err","رابط Airtable Webhook غير مضبوط. عدّله في app.js.");
+  if(!AIRTABLE_WEBHOOK_URL.startsWith("https://hooks.airtable.com/")){
+    return setStatus("err","رابط Airtable Webhook غير مضبوط.");
   }
 
-  setStatus("warn","جارٍ تحسين دقة الموقع...");
+  setStatus("warn","جارٍ تحديد الموقع...");
   try{
-    // حاول نوصل ≤ 30م أو نسلم أفضل نتيجة بعد 10 ثواني
-    const pos = await getBestPosition({ desiredAccuracy: 30, hardTimeoutMs: 10000 });
+    const pos = await getBestPosition({ desiredAccuracy: 120, hardTimeoutMs: 15000 });
     const { latitude, longitude, accuracy } = pos.coords;
 
-    const pretty = await reverseGeocodePrecise(latitude, longitude); // نص عربي: الدولة – المحافظة – المكان
+    const pretty = await reverseGeocodePrecise(latitude, longitude); 
 
     const now = new Date();
     const record = {
       name,
       action: currentAction,
       address_text: pretty.text,
-      address_parts: pretty.parts,   // {country, governorate, exact, city}
       lat: latitude,
       lon: longitude,
-      gps_accuracy_m: Math.round(accuracy),
-      timestamp_iso: now.toISOString(),
-      time_hhmm: now.toLocaleTimeString("ar-EG",{hour:"2-digit",minute:"2-digit"})
+      accuracy: Math.round(accuracy),
+      timestamp_iso: now.toISOString()
     };
 
-    // خزّن محليًا: آخر تسجيل فقط لكل اسم
     if (SAVE_LOCALLY) upsertLocalRecord(record);
 
-    // إرسال JSON صريح للويبهوك (Airtable Automation)
     await sendToAirtableWebhook(record);
 
     setStatus("ok","تم التسجيل بنجاح.");
-    if (accuracyBadge) accuracyBadge.textContent = `دقة: ${record.gps_accuracy_m}م`;
+    if (accuracyBadge) accuracyBadge.textContent = `دقة: ${record.accuracy}م`;
     if (hint)           hint.textContent = `الموقع: ${record.address_text}`;
-    if (SHOW_LOCAL_LOG) renderLocalLog();
 
-    console.log("تم إرسال Webhook:", record);
+    if (SHOW_LOCAL_LOG) renderLocalLog();
 
   }catch(err){
     console.error(err);
@@ -166,42 +151,20 @@ async function onSubmit(){
 
 /* ========= إرسال إلى Airtable Webhook ========= */
 async function sendToAirtableWebhook(record){
-  // ابعت القيم الفعلية (مش أسماء الحقول)
-  const payload = {
-    name: record.name,
-    action: record.action,
-    address_text: record.address_text,
-    lat: record.lat,
-    lon: record.lon,
-    timestamp_iso: record.timestamp_iso,
-    accuracy: record.gps_accuracy_m ?? null
-  };
-
   try {
     const res = await fetch(AIRTABLE_WEBHOOK_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json; charset=UTF-8" },
-      body: JSON.stringify(payload)
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(record)
     });
-    // لو CORS يمنع قراءة الرد عادي، المهم الطلب يوصل.
-    try { console.log("Webhook response:", await res.clone().text()); } catch(_) {}
+    console.log("Webhook response:", await res.text());
   } catch (e) {
     console.error("Airtable webhook error", e);
   }
 }
 
-
-/* ========= مسح السجل المحلي ========= */
-if (clearLocalBtn){
-  clearLocalBtn.addEventListener("click", ()=>{
-    localStorage.removeItem("attendanceLastByName");
-    if (SHOW_LOCAL_LOG) renderLocalLog();
-    setStatus("ok","تم مسح السجل المحلي.");
-  });
-}
-
-/* ========= تحديد الموقع بدقة أعلى ========= */
-function getBestPosition({ desiredAccuracy = 30, hardTimeoutMs = 10000 } = {}) {
+/* ========= تحديد الموقع ========= */
+function getBestPosition({ desiredAccuracy = 120, hardTimeoutMs = 15000 } = {}) {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) return reject(new Error("Geolocation unavailable"));
 
@@ -210,13 +173,12 @@ function getBestPosition({ desiredAccuracy = 30, hardTimeoutMs = 10000 } = {}) {
 
     const success = (pos) => {
       const { accuracy } = pos.coords;
-
       if (!best || accuracy < best.coords.accuracy) best = pos;
 
       if (accuracyBadge) {
         accuracyBadge.classList.remove("ok","warn","err");
         if (accuracy <= desiredAccuracy)      accuracyBadge.classList.add("ok");
-        else if (accuracy <= 100)             accuracyBadge.classList.add("warn");
+        else if (accuracy <= 200)             accuracyBadge.classList.add("warn");
         else                                  accuracyBadge.classList.add("err");
         accuracyBadge.textContent = `دقة: ${Math.round(accuracy)}م`;
       }
@@ -229,124 +191,67 @@ function getBestPosition({ desiredAccuracy = 30, hardTimeoutMs = 10000 } = {}) {
       }
     };
 
-    const error = (err) => { if (!best) reject(err); };
-
-    const wid = navigator.geolocation.watchPosition(success, error, {
+    const wid = navigator.geolocation.watchPosition(success, ()=>{}, {
       enableHighAccuracy: true,
       maximumAge: 0,
-      timeout: 15000
+      timeout: 20000
     });
 
     const timer = setTimeout(() => {
       navigator.geolocation.clearWatch(wid);
-      if (best) { resolved = true; resolve(best); }
-      else reject(new Error("Timeout: لم نتمكن من الحصول على موقع جيد"));
+      if (best) resolve(best);
+      else reject(new Error("Timeout: لم نتمكن من الحصول على موقع"));
     }, hardTimeoutMs);
   });
 }
 
-/* ========= عكس الترميز بدقة أعلى ========= */
+/* ========= عكس الترميز ========= */
 async function reverseGeocodePrecise(lat, lon) {
   const url = `https://nominatim.openstreetmap.org/reverse?format=json&accept-language=ar&zoom=18&addressdetails=1&lat=${lat}&lon=${lon}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error("Reverse geocoding failed");
   const data = await res.json();
   const a = data.address || {};
-
-  const country     = a.country || "";
-  const governorate = a.state || a.region || a.county || a.province || a.state_district || "";
-  const city        = a.city || a.town || a.village || a.municipality || a.city_district || "";
-
-  const exactParts = [
-    a.road, a.house_number, a.building, a.block,
-    a.neighbourhood, a.suburb, a.quarter, a.residential, a.hamlet
-  ].filter(Boolean);
-
-  const exact = exactParts.join("، ");
-
-  const parts = { country, governorate, exact, city };
+  const country = a.country || "";
+  const governorate = a.state || a.region || "";
+  const city = a.city || a.town || a.village || "";
+  const exact = [a.road, a.neighbourhood].filter(Boolean).join("، ");
   const text = [country, governorate, exact || city].filter(Boolean).join(" – ");
-  return { parts, text: text || (data.display_name || "").replaceAll(",", " – ") || "غير محدد" };
+  return { text: text || "غير محدد" };
 }
 
-/* ========= تخزين/عرض محلي: سجل واحد لكل موظف ========= */
+/* ========= سجل محلي ========= */
 function getLocalMap(){
-  try{
-    return JSON.parse(localStorage.getItem("attendanceLastByName") || "{}");
-  }catch{
-    return {};
-  }
+  try{ return JSON.parse(localStorage.getItem("attendanceLastByName") || "{}"); }
+  catch{ return {}; }
 }
-function setLocalMap(map){
-  localStorage.setItem("attendanceLastByName", JSON.stringify(map));
-}
-function upsertLocalRecord(rec){
-  if (!SAVE_LOCALLY) return;
-  const map = getLocalMap();
-  map[rec.name] = rec; // استبدل القديم بالجديد لنفس الاسم
-  setLocalMap(map);
-}
-function getLastRecordFor(name){
-  const map = getLocalMap();
-  return map[name] || null;
-}
+function setLocalMap(map){ localStorage.setItem("attendanceLastByName", JSON.stringify(map)); }
+function upsertLocalRecord(rec){ const map=getLocalMap(); map[rec.name]=rec; setLocalMap(map); }
+function getLastRecordFor(name){ return getLocalMap()[name] || null; }
 
-/* ========= عرض آخر سجل للموظف ========= */
 function renderLocalLog(){
   if (!SHOW_LOCAL_LOG || !logBody) return;
-
   const selected=(employeeSelect?.value||"").trim();
   logBody.innerHTML="";
-
   if (!selected){
-    const div=document.createElement("div");
-    div.className="empty";
-    div.textContent="اختر اسمًا لعرض آخر تسجيل له";
-    logBody.appendChild(div);
-    return;
+    logBody.innerHTML="<div class='empty'>اختر اسمًا لعرض آخر تسجيل له</div>"; return;
   }
-
-  const r = getLastRecordFor(selected);
+  const r=getLastRecordFor(selected);
   if (!r){
-    const div=document.createElement("div");
-    div.className="empty";
-    div.textContent="لا يوجد تسجيل سابق لهذا الموظف";
-    logBody.appendChild(div);
-    return;
+    logBody.innerHTML="<div class='empty'>لا يوجد تسجيل سابق لهذا الموظف</div>"; return;
   }
-
   const wrap=document.createElement("div"); wrap.className="row-item";
-
-  const name=document.createElement("div"); name.textContent=r.name;
-
-  const action=document.createElement("div");
-  const badge=document.createElement("span");
-  badge.className="badge " + (r.action==="دخول" ? "in" : "out");
-  badge.textContent=r.action;
-  action.appendChild(badge);
-
-  const loc=document.createElement("div");
-  loc.className="location";
-  loc.textContent=r.address_text || "—";
-
-  const time=document.createElement("div");
-  time.className="time";
-  const dt=new Date(r.timestamp_iso);
-  const dateStr=dt.toLocaleDateString("ar-EG",{year:"numeric",month:"2-digit",day:"2-digit"});
-  const timeStr=dt.toLocaleTimeString("ar-EG",{hour:"2-digit",minute:"2-digit"});
-  time.innerHTML=`<span style="direction:ltr; display:inline-block;">${dateStr} ${timeStr}</span>`;
-
-  wrap.appendChild(name);
-  wrap.appendChild(action);
-  wrap.appendChild(loc);
-  wrap.appendChild(time);
+  wrap.innerHTML=`
+    <div>${r.name}</div>
+    <div><span class="badge ${r.action==="دخول"?"in":"out"}">${r.action}</span></div>
+    <div class="location">${r.address_text||"—"}</div>
+    <div class="time"><span style="direction:ltr;">${new Date(r.timestamp_iso).toLocaleString("ar-EG")}</span></div>
+  `;
   logBody.appendChild(wrap);
 }
 
 /* ========= حالة الواجهة ========= */
 function setStatus(kind, text){
   if (!statusDot) return;
-  statusDot.classList.remove("ok","warn","err");
-  statusDot.classList.add(kind);
+  statusDot.className = kind;
   statusDot.textContent=text;
 }
