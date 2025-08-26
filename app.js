@@ -1,9 +1,9 @@
 /* ========= إعدادات عامة ========= */
 
-// رابط Airtable Webhook الخاص بيك (اللي طلعته من Automation)
+// رابط Airtable Webhook الخاص بيك
 const AIRTABLE_WEBHOOK_URL = "https://hooks.airtable.com/workflows/v1/genericWebhook/appzxGL0hH1jpxMM7/wflWj5y96rbaODAAA/wtrzdV1KGkmzggQA9";
 
-/* ===== تخزين/عرض محلي: نحتفظ بآخر تسجيل لكل موظف فقط ===== */
+/* ===== تخزين/عرض محلي ===== */
 const SAVE_LOCALLY   = true;  
 const SHOW_LOCAL_LOG = true;  
 
@@ -154,7 +154,7 @@ async function sendToAirtableWebhook(record){
   try {
     const res = await fetch(AIRTABLE_WEBHOOK_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json; charset=UTF-8" }, // مهم للغة العربية
       body: JSON.stringify(record)
     });
     console.log("Webhook response:", await res.text());
