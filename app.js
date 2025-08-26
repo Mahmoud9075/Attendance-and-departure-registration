@@ -1,8 +1,7 @@
 /* ========= إعدادات عامة ========= */
 
-/** رابط Airtable Automation Webhook (من Automations → When webhook received → Copy URL) */
-const AIRTABLE_WEBHOOK_URL =
-  "https://hooks.airtable.com/workflows/v1/genericWebhook/appzxGL0hH1jpxMM7/wflWj5y96rbaODAAA/wtrzdV1KGkmzggQA9";
+// رابط Zapier Webhook الخاص بيك (اللي طلعته)
+const ZAPIER_WEBHOOK_URL = "https://hooks.zapier.com/hooks/catch/24367588/uhbefux/";
 
 /* ===== تخزين/عرض محلي: نحتفظ بآخر تسجيل لكل موظف فقط ===== */
 const SAVE_LOCALLY   = true;  // نخزن آخر تسجيل (يستبدل القديم)
@@ -123,9 +122,9 @@ async function onSubmit(){
   const name=(employeeSelect?.value||"").trim();
   if(!name){ return setStatus("err","اختر اسم الموظف أولًا."); }
 
-  // ✅ إلغاء التحقق المتشدد على صيغة الرابط (كان سبب الرسالة الحمراء)
-  if (!AIRTABLE_WEBHOOK_URL) {
-    return setStatus("err","من فضلك اضف رابط Airtable Webhook في app.js");
+  // تنبيه لو رابط الـWebhook مش متضبط
+  if(!ZAPIER_WEBHOOK_URL || !/^https:\/\/hooks\.zapier\.com\/hooks\/catch\//.test(ZAPIER_WEBHOOK_URL)){
+    return setStatus("err","رابط Zapier Webhook غير مضبوط. عدّل السطر في app.js.");
   }
 
   setStatus("warn","جارٍ تحسين دقة الموقع...");
@@ -152,8 +151,8 @@ async function onSubmit(){
     // خزّن محليًا: آخر تسجيل فقط (يستبدل القديم)
     if (SAVE_LOCALLY) upsertLocalRecord(record);
 
-    // إرسال مباشر إلى Airtable كـ JSON (UTF-8)
-    await sendToAirtableWebhook(record);
+    // إرسال مباشر إلى Zapier كـ JSON
+    await sendToZapierWebhook(record);
 
     setStatus("ok","تم التسجيل بنجاح.");
     if (accuracyBadge) accuracyBadge.textContent = `دقة: ${record.gps_accuracy_m}م`;
@@ -178,8 +177,8 @@ async function onSubmit(){
   }
 }
 
-/* ========= إرسال إلى Airtable Webhook ========= */
-async function sendToAirtableWebhook(record){
+/* ========= إرسال إلى Zapier Webhook ========= */
+async function sendToZapierWebhook(record){
   const payload = {
     name: record.name,
     action: record.action,
@@ -191,15 +190,17 @@ async function sendToAirtableWebhook(record){
   };
 
   try {
-    await fetch(AIRTABLE_WEBHOOK_URL, {
+    const res = await fetch(ZAPIER_WEBHOOK_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json; charset=UTF-8" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
+    try { console.log("Webhook response:", await res.clone().text()); } catch(_) {}
   } catch (e) {
-    console.error("Airtable webhook error", e);
+    console.error("Zapier webhook error", e);
   }
 }
+
 
 /* ========= مسح السجل المحلي ========= */
 if (clearLocalBtn){
