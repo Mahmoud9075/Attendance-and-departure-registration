@@ -1,7 +1,8 @@
 /* ========= إعدادات عامة ========= */
 
-/** ضع هنا رابط Airtable Automation Webhook (من Automations → When webhook received → Copy URL) */
-const AIRTABLE_WEBHOOK_URL = "https://hooks.airtable.com/workflows/v1/genericWebhook/appzxGL0hH1jpxMM7/wflWj5y96rbaODAAA/wtrzdV1KGkmzggQA9"; // ← بدّلها برابطك
+/** رابط Airtable Automation Webhook (من Automations → When webhook received → Copy URL) */
+const AIRTABLE_WEBHOOK_URL =
+  "https://hooks.airtable.com/workflows/v1/genericWebhook/appzxGL0hH1jpxMM7/wflWj5y96rbaODAAA/wtrzdV1KGkmzggQA9";
 
 /* ===== تخزين/عرض محلي: نحتفظ بآخر تسجيل لكل موظف فقط ===== */
 const SAVE_LOCALLY   = true;  // نخزن آخر تسجيل (يستبدل القديم)
@@ -122,9 +123,9 @@ async function onSubmit(){
   const name=(employeeSelect?.value||"").trim();
   if(!name){ return setStatus("err","اختر اسم الموظف أولًا."); }
 
-  // تحقق سريع من رابط الويبهوك
-  if(!AIRTABLE_WEBHOOK_URL || !/^https:\/\/.+\/webhook\//.test(AIRTABLE_WEBHOOK_URL)){
-    return setStatus("err","رابط Airtable Webhook غير مضبوط.");
+  // ✅ إلغاء التحقق المتشدد على صيغة الرابط (كان سبب الرسالة الحمراء)
+  if (!AIRTABLE_WEBHOOK_URL) {
+    return setStatus("err","من فضلك اضف رابط Airtable Webhook في app.js");
   }
 
   setStatus("warn","جارٍ تحسين دقة الموقع...");
@@ -360,4 +361,3 @@ function setStatus(kind, text){
   statusDot.classList.add(kind);
   statusDot.textContent=text;
 }
-
