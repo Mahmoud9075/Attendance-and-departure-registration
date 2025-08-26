@@ -1,9 +1,6 @@
 /* ========= إعدادات عامة ========= */
 
-// (اختياري) لو هتستخدم Google Apps Script كوسيط بدل الإرسال المباشر
-const GOOGLE_APPS_SCRIPT_URL = "";
-
-// رابط Airtable Automation Webhook (تأكد إنه بتاعك)
+/** ضع هنا رابط Airtable Automation Webhook (من Automations → When webhook received → Copy URL) */
 const AIRTABLE_WEBHOOK_URL =
   "https://hooks.airtable.com/workflows/v1/genericWebhook/appzxGL0hH1jpxMM7/wflWj5y96rbaODAAA/wtrzdV1KGkmzggQA9";
 
@@ -43,6 +40,7 @@ let currentAction = "دخول";
   if (!SAVE_LOCALLY  && clearLocalBtn) clearLocalBtn.style.display = "none";
 
   if (SHOW_LOCAL_LOG) renderLocalLog();
+  setStatus("ok","جاهز");
 })();
 
 /* ========= تعبئة قائمة الأسماء ========= */
@@ -56,7 +54,7 @@ function fillEmployees(list){
   });
 }
 
-/* ========= اقتراحات البحث الفورية (اختياري) ========= */
+/* ========= اقتراحات البحث الفورية ========= */
 function showSuggestions(items){
   if (!suggestionsEl) return;
   suggestionsEl.innerHTML = "";
@@ -84,13 +82,6 @@ if (searchInput){
     fillEmployees(filtered.length ? filtered : EMPLOYEES);
     if(q){ showSuggestions(filtered.slice(0,20)); }
     else if (suggestionsEl) { suggestionsEl.classList.add("hidden"); }
-  });
-
-  searchInput.addEventListener("focus", ()=>{
-    const q = searchInput.value.trim().toLowerCase();
-    if(!q) return;
-    const filtered = EMPLOYEES.filter(n => n.toLowerCase().includes(q));
-    showSuggestions(filtered.slice(0,20));
   });
 
   document.addEventListener("click", (e)=>{
@@ -126,9 +117,8 @@ async function onSubmit(){
   const name=(employeeSelect?.value||"").trim();
   if(!name){ return setStatus("err","اختر اسم الموظف أولًا."); }
 
-  // تنبيه لو رابط الـWebhook مش متضبط
-  if(!AIRTABLE_WEBHOOK_URL || !/^https:\/\/hooks\.airtable\.com\/workflows\/v1\/genericWebhook\//.test(AIRTABLE_WEBHOOK_URL)){
-    return setStatus("err","رابط Airtable Webhook غير مضبوط. عدّل السطر في app.js.");
+  if (!AIRTABLE_WEBHOOK_URL){
+    return setStatus("err","أضف رابط Airtable Webhook في app.js.");
   }
 
   setStatus("warn","جارٍ تحسين دقة الموقع...");
@@ -155,18 +145,7 @@ async function onSubmit(){
     // خزّن محليًا: آخر تسجيل فقط (يستبدل القديم)
     if (SAVE_LOCALLY) upsertLocalRecord(record);
 
-    // (اختياري) Google Sheets
-    if (GOOGLE_APPS_SCRIPT_URL){
-      try{
-        fetch(GOOGLE_APPS_SCRIPT_URL,{
-          method:"POST", mode:"no-cors",
-          headers:{ "Content-Type":"application/json" },
-          body:JSON.stringify(record)
-        }).catch(()=>{});
-      }catch(_){}
-    }
-
-    // إرسال مباشر إلى Airtable كـ JSON
+    // إرسال إلى Airtable
     await sendToAirtableWebhook(record);
 
     setStatus("ok","تم التسجيل بنجاح.");
@@ -204,20 +183,29 @@ async function sendToAirtableWebhook(record){
     accuracy: record.gps_accuracy_m ?? null
   };
 
+  // المحاولة الأساسية: JSON بترميز UTF-8 (أفضل شيء لعربي)
   try {
     const res = await fetch(AIRTABLE_WEBHOOK_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json; charset=UTF-8" },
       body: JSON.stringify(payload)
     });
-    // بعض البيئات قد تمنع قراءة الرد بسبب CORS، لكن الطلب يصل للويبهوك.
-    // لو متاح، نطبع الرد:
-    try { console.log("Webhook response:", await res.clone().text()); } catch(_) {}
+    // لو السيرفر رفض أو حصل CORS، جرّب خطة بديلة
+    if (!res || !res.ok) throw new Error("JSON send failed");
   } catch (e) {
-    console.error("Airtable webhook error", e);
+    console.warn("Fallback to FormData because JSON send failed:", e?.message || e);
+    // المحاولة الاحتياطية: FormData (بعض البيئات بتسمح بيها أسهل)
+    const fd = new FormData();
+    for (const [k,v] of Object.entries(payload)) fd.append(k, String(v ?? ""));
+    try {
+      await fetch(AIRTABLE_WEBHOOK_URL, { method: "POST", body: fd });
+    } catch (e2) {
+      console.error("Airtable webhook error (FormData fallback)", e2);
+      setStatus("err","تعذّر إرسال البيانات إلى Airtable.");
+      throw e2;
+    }
   }
 }
-
 
 /* ========= مسح السجل المحلي ========= */
 if (clearLocalBtn){
