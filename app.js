@@ -1,7 +1,7 @@
 /* ========= إعدادات عامة ========= */
 
 /** ضع هنا رابط Airtable Automation Webhook (من Automations → When webhook received → Copy URL) */
-const AIRTABLE_WEBHOOK_URL = "https://api.airtable.com/automation/webhook/XXXXXXXX"; // ← بدّلها برابطك
+const AIRTABLE_WEBHOOK_URL = "https://hooks.airtable.com/workflows/v1/genericWebhook/appzxGL0hH1jpxMM7/wflWj5y96rbaODAAA/wtrzdV1KGkmzggQA9"; // ← بدّلها برابطك
 
 /* ===== تخزين/عرض محلي: نحتفظ بآخر تسجيل لكل موظف فقط ===== */
 const SAVE_LOCALLY   = true;  // نخزن آخر تسجيل (يستبدل القديم)
@@ -360,3 +360,4 @@ function setStatus(kind, text){
   statusDot.classList.add(kind);
   statusDot.textContent=text;
 }
+
