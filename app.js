@@ -1,7 +1,7 @@
 /* ========= إعدادات عامة ========= */
 
 // رابط Zapier Webhook (Catch Hook)
-const ZAPIER_WEBHOOK_URL = "https://hooks.zapier.com/hooks/catch/24367588/uhbefux/";
+const ZAPIER_WEBHOOK_URL = "https://hooks.zapier.com/hooks/catch/24367588/uhu3vvf/";
 
 /* ===== تخزين/عرض محلي ===== */
 const SAVE_LOCALLY   = true;
