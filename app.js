@@ -1,11 +1,11 @@
 /* ========= إعدادات عامة ========= */
 
-// رابط Airtable Webhook الخاص بيك
-const AIRTABLE_WEBHOOK_URL = "https://hooks.airtable.com/workflows/v1/genericWebhook/appzxGL0hH1jpxMM7/wflWj5y96rbaODAAA/wtrzdV1KGkmzggQA9";
+// رابط Zapier Webhook الخاص بك (Trigger: Webhooks by Zapier → Catch Hook)
+const ZAPIER_WEBHOOK_URL = "https://hooks.zapier.com/hooks/catch/24367588/uhbefux/";
 
 /* ===== تخزين/عرض محلي ===== */
-const SAVE_LOCALLY   = true;  
-const SHOW_LOCAL_LOG = true;  
+const SAVE_LOCALLY   = true;
+const SHOW_LOCAL_LOG = true;
 
 // أسماء الموظفين
 const EMPLOYEES = [
@@ -39,6 +39,7 @@ let currentAction = "دخول";
   if (!SAVE_LOCALLY  && clearLocalBtn) clearLocalBtn.style.display = "none";
 
   if (SHOW_LOCAL_LOG) renderLocalLog();
+  if (statusDot) { statusDot.className="status ok"; statusDot.textContent="جاهز"; }
 })();
 
 /* ========= تعبئة قائمة الأسماء ========= */
@@ -101,17 +102,15 @@ function setActionButton(action){
 }
 
 /* ========= زر تسجيل الآن ========= */
-if (submitBtn){
-  submitBtn.addEventListener("click", onSubmit);
-}
+if (submitBtn){ submitBtn.addEventListener("click", onSubmit); }
 
 async function onSubmit(){
   if (hint) hint.textContent="";
   const name=(employeeSelect?.value||"").trim();
   if(!name){ return setStatus("err","اختر اسم الموظف أولًا."); }
 
-  if(!AIRTABLE_WEBHOOK_URL.startsWith("https://hooks.airtable.com/")){
-    return setStatus("err","رابط Airtable Webhook غير مضبوط.");
+  if(!ZAPIER_WEBHOOK_URL.startsWith("https://hooks.zapier.com/hooks/catch/")){
+    return setStatus("err","رابط Zapier Webhook غير مضبوط.");
   }
 
   setStatus("warn","جارٍ تحديد الموقع...");
@@ -119,7 +118,7 @@ async function onSubmit(){
     const pos = await getBestPosition({ desiredAccuracy: 120, hardTimeoutMs: 15000 });
     const { latitude, longitude, accuracy } = pos.coords;
 
-    const pretty = await reverseGeocodePrecise(latitude, longitude); 
+    const pretty = await reverseGeocodePrecise(latitude, longitude);
 
     const now = new Date();
     const record = {
@@ -134,12 +133,11 @@ async function onSubmit(){
 
     if (SAVE_LOCALLY) upsertLocalRecord(record);
 
-    await sendToAirtableWebhook(record);
+    await sendToZapier(record);
 
     setStatus("ok","تم التسجيل بنجاح.");
-    if (accuracyBadge) accuracyBadge.textContent = `دقة: ${record.accuracy}م`;
+    if (accuracyBadge) accuracyBadge.textContent = `دقة: ${record.accurي}م`.replace("accurي","accuracy"); // حماية بسيطة لو محرك غيّر الحروف
     if (hint)           hint.textContent = `الموقع: ${record.address_text}`;
-
     if (SHOW_LOCAL_LOG) renderLocalLog();
 
   }catch(err){
@@ -149,21 +147,28 @@ async function onSubmit(){
   }
 }
 
-/* ========= إرسال إلى Airtable Webhook ========= */
-async function sendToAirtableWebhook(record){
+/* ========= إرسال إلى Zapier Webhook ========= */
+async function sendToZapier(record){
+  // الإرسال الموصى به: JSON + UTF-8 (يحافظ على العربي)
   try {
-    const res = await fetch(AIRTABLE_WEBHOOK_URL, {
+    const res = await fetch(ZAPIER_WEBHOOK_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json; charset=UTF-8" }, // مهم للغة العربية
+      headers: { "Content-Type": "application/json; charset=UTF-8", "Accept": "application/json" },
       body: JSON.stringify(record)
     });
-    console.log("Webhook response:", await res.text());
+    try { console.log("Zapier response:", await res.clone().text()); } catch(_) {}
   } catch (e) {
-    console.error("Airtable webhook error", e);
+    console.error("Zapier webhook error", e);
   }
+
+  /* // بديل (لو شوفت ???? جوه Zapier Trigger): استخدم FormData وغيّر المابينج في Zapier لـ payload.*
+  const fd = new FormData();
+  for (const [k,v] of Object.entries(record)) fd.append(k, String(v ?? ""));
+  await fetch(ZAPIER_WEBHOOK_URL, { method:"POST", body: fd });
+  */
 }
 
-/* ========= تحديد الموقع ========= */
+/* ========= تحديد الموقع (أفضل نتيجة خلال مهلة) ========= */
 function getBestPosition({ desiredAccuracy = 120, hardTimeoutMs = 15000 } = {}) {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) return reject(new Error("Geolocation unavailable"));
@@ -205,21 +210,23 @@ function getBestPosition({ desiredAccuracy = 120, hardTimeoutMs = 15000 } = {}) 
   });
 }
 
-/* ========= عكس الترميز ========= */
+/* ========= عكس الترميز (عنوان عربي مرتب) ========= */
 async function reverseGeocodePrecise(lat, lon) {
   const url = `https://nominatim.openstreetmap.org/reverse?format=json&accept-language=ar&zoom=18&addressdetails=1&lat=${lat}&lon=${lon}`;
   const res = await fetch(url);
+  if (!res.ok) throw new Error("Reverse geocoding failed");
   const data = await res.json();
   const a = data.address || {};
-  const country = a.country || "";
-  const governorate = a.state || a.region || "";
-  const city = a.city || a.town || a.village || "";
-  const exact = [a.road, a.neighbourhood].filter(Boolean).join("، ");
+  const country     = a.country || "";
+  const governorate = a.state || a.region || a.county || a.province || a.state_district || "";
+  const city        = a.city || a.town || a.village || a.municipality || a.city_district || "";
+  const exact       = [a.road, a.house_number, a.neighbourhood, a.suburb, a.quarter, a.building]
+                      .filter(Boolean).join("، ");
   const text = [country, governorate, exact || city].filter(Boolean).join(" – ");
-  return { text: text || "غير محدد" };
+  return { text: text || (data.display_name || "").replaceAll(",", " – ") || "غير محدد" };
 }
 
-/* ========= سجل محلي ========= */
+/* ========= السجل المحلي ========= */
 function getLocalMap(){
   try{ return JSON.parse(localStorage.getItem("attendanceLastByName") || "{}"); }
   catch{ return {}; }
@@ -252,6 +259,7 @@ function renderLocalLog(){
 /* ========= حالة الواجهة ========= */
 function setStatus(kind, text){
   if (!statusDot) return;
-  statusDot.className = kind;
+  statusDot.classList.remove("ok","warn","err");
+  statusDot.classList.add(kind);
   statusDot.textContent=text;
 }
