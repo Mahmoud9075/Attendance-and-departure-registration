@@ -152,7 +152,7 @@ async function sendToZapier(record){
   try {
     const res = await fetch(ZAPIER_WEBHOOK_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json; charset=UTF-8", "Accept": "application/json" },
+      headers: { "Accept": "application/json" },
       body: JSON.stringify(record)
     });
     try { console.log("Zapier response:", await res.clone().text()); } catch(_) {}
