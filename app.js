@@ -1,278 +1,296 @@
 /* ========= إعدادات عامة ========= */
 
-// رابط Zapier Webhook (Catch Hook)
-const ZAPIER_WEBHOOK_URL = "https://hooks.zapier.com/hooks/catch/24367588/uhu3vvf/?silent=1";
+/** ضع هنا رابط Google Apps Script Web App */
+const SHEETS_ENDPOINT = "https://script.google.com/macros/s/PUT_YOUR_WEB_APP_ID/exec";
 
 /* ===== تخزين/عرض محلي ===== */
-const SAVE_LOCALLY   = true;
+const SAVE_LOCALLY   = true;
 const SHOW_LOCAL_LOG = true;
 
 // أسماء الموظفين
 const EMPLOYEES = [
-  "Amna Al-Shehhi","Saman","Sufiyan","Subhan","Vangelyn","Swaroop","Nada Farag","Aya","Maysa",
-  "Rajeh","Jaber","Ali amallah","Riham Al-Abri","Maryam Al-Futaisi","Salma Al-Shibli","Raqia Al-Suri",
-  "Jihad | Operations","Nada | Operations","Aisha | Operations","Kholoud | Operations","Israa – Hormuz Designer",
-  "Mona Ibrahim","Trusila Thuo","Kholoud | Marketing","Alia | Marketing"
+  "Amna Al-Shehhi","Saman","Sufiyan","Subhan","Vangelyn","Swaroop","Nada Farag","Aya","Maysa",
+  "Rajeh","Jaber","Ali amallah","Riham Al-Abri","Maryam Al-Futaisi","Salma Al-Shibli","Raqia Al-Suri",
+  "Jihad | Operations","Nada | Operations","Aisha | Operations","Kholoud | Operations","Israa – Hormuz Designer",
+  "Mona Ibrahim","Trusila Thuo","Kholoud | Marketing","Alia | Marketing"
 ];
 
 /* ========= مراجع عناصر الواجهة ========= */
-const searchInput    = document.getElementById("search");
-const suggestionsEl  = document.getElementById("suggestions");
+const searchInput    = document.getElementById("search");
+const suggestionsEl  = document.getElementById("suggestions");
 const employeeSelect = document.getElementById("employee");
-const btnIn          = document.getElementById("btn-in");
-const btnOut         = document.getElementById("btn-out");
-const submitBtn      = document.getElementById("submitBtn");
-const clearLocalBtn  = document.getElementById("clearLocalBtn");
-const statusDot      = document.getElementById("statusDot");
-const accuracyBadge  = document.getElementById("accuracyBadge");
-const hint           = document.getElementById("hint");
-const logBody        = document.getElementById("logBody");
+const btnIn          = document.getElementById("btn-in");
+const btnOut         = document.getElementById("btn-out");
+const submitBtn      = document.getElementById("submitBtn");
+const clearLocalBtn  = document.getElementById("clearLocalBtn");
+const statusDot      = document.getElementById("statusDot");
+const accuracyBadge  = document.getElementById("accuracyBadge");
+const hint           = document.getElementById("hint");
+const logBody        = document.getElementById("logBody");
 
+/* نخزن هنا نص الحركة الحالي في الواجهة (زر دخول/انصراف) */
 let currentAction = "دخول";
 
 /* ========= تهيئة ========= */
 (function init(){
-  fillEmployees(EMPLOYEES);
-  setActionButton("دخول");
+  fillEmployees(EMPLOYEES);
+  setActionButton("دخول");
 
-  if (!SHOW_LOCAL_LOG && logBody)      logBody.style.display = "none";
-  if (!SAVE_LOCALLY  && clearLocalBtn) clearLocalBtn.style.display = "none";
+  if (!SHOW_LOCAL_LOG && logBody)      logBody.style.display = "none";
+  if (!SAVE_LOCALLY  && clearLocalBtn) clearLocalBtn.style.display = "none";
 
-  if (SHOW_LOCAL_LOG) renderLocalLog();
-  if (statusDot) { statusDot.className="status ok"; statusDot.textContent="جاهز"; }
+  if (SHOW_LOCAL_LOG) renderLocalLog();
+  if (statusDot) { statusDot.className="status ok"; statusDot.textContent="جاهز"; }
 })();
 
 /* ========= تعبئة قائمة الأسماء ========= */
 function fillEmployees(list){
-  if (!employeeSelect) return;
-  employeeSelect.querySelectorAll("option:not(:first-child)").forEach(o=>o.remove());
-  list.forEach(name=>{
-    const opt=document.createElement("option");
-    opt.value=name; opt.textContent=name;
-    employeeSelect.appendChild(opt);
-  });
+  if (!employeeSelect) return;
+  employeeSelect.querySelectorAll("option:not(:first-child)").forEach(o=>o.remove());
+  list.forEach(name=>{
+    const opt=document.createElement("option");
+    opt.value=name; opt.textContent=name;
+    employeeSelect.appendChild(opt);
+  });
 }
 
 /* ========= البحث الفوري ========= */
 function showSuggestions(items){
-  if (!suggestionsEl) return;
-  suggestionsEl.innerHTML = "";
-  if(!items.length){ suggestionsEl.classList.add("hidden"); return; }
-  items.forEach(name=>{
-    const li=document.createElement("li");
-    li.textContent=name;
-    li.addEventListener("mousedown", e=>{
-      e.preventDefault();
-      if (searchInput) searchInput.value = name;
-      suggestionsEl.classList.add("hidden");
-      fillEmployees([name]);
-      if (employeeSelect) employeeSelect.value = name;
-      if (SHOW_LOCAL_LOG) renderLocalLog();
-    });
-    suggestionsEl.appendChild(li);
-  });
-  suggestionsEl.classList.remove("hidden");
+  if (!suggestionsEl) return;
+  suggestionsEl.innerHTML = "";
+  if(!items.length){ suggestionsEl.classList.add("hidden"); return; }
+  items.forEach(name=>{
+    const li=document.createElement("li");
+    li.textContent=name;
+    li.addEventListener("mousedown", e=>{
+      e.preventDefault();
+      if (searchInput) searchInput.value = name;
+      suggestionsEl.classList.add("hidden");
+      fillEmployees([name]);
+      if (employeeSelect) employeeSelect.value = name;
+      if (SHOW_LOCAL_LOG) renderLocalLog();
+    });
+    suggestionsEl.appendChild(li);
+  });
+  suggestionsEl.classList.remove("hidden");
 }
 
 if (searchInput){
-  searchInput.addEventListener("input", ()=>{
-    const q = searchInput.value.trim().toLowerCase();
-    const filtered = EMPLOYEES.filter(n => n.toLowerCase().includes(q));
-    fillEmployees(filtered.length ? filtered : EMPLOYEES);
-    if(q){ showSuggestions(filtered.slice(0,20)); }
-    else if (suggestionsEl) { suggestionsEl.classList.add("hidden"); }
-  });
+  searchInput.addEventListener("input", ()=>{
+    const q = searchInput.value.trim().toLowerCase();
+    const filtered = EMPLOYEES.filter(n => n.toLowerCase().includes(q));
+    fillEmployees(filtered.length ? filtered : EMPLOYEES);
+    if(q){ showSuggestions(filtered.slice(0,20)); }
+    else if (suggestionsEl) { suggestionsEl.classList.add("hidden"); }
+  });
 
-  document.addEventListener("click", (e)=>{
-    if(!e.target.closest(".search-wrap") && suggestionsEl){
-      suggestionsEl.classList.add("hidden");
-    }
-  });
+  document.addEventListener("click", (e)=>{
+    if(!e.target.closest(".search-wrap") && suggestionsEl){
+      suggestionsEl.classList.add("hidden");
+    }
+  });
 }
 
 /* ========= تبديل الحركة ========= */
-if (btnIn)  btnIn.addEventListener("click",()=> setActionButton("دخول"));
+if (btnIn)  btnIn.addEventListener("click",()=> setActionButton("دخول"));
 if (btnOut) btnOut.addEventListener("click",()=> setActionButton("انصراف"));
 
 function setActionButton(action){
-  currentAction = action;
-  if(!btnIn || !btnOut) return;
-  if(action==="دخول"){ btnIn.classList.add("btn-primary"); btnOut.classList.remove("btn-primary"); }
-  else               { btnOut.classList.add("btn-primary"); btnIn.classList.remove("btn-primary"); }
+  currentAction = action;
+  if(!btnIn || !btnOut) return;
+  if(action==="دخول"){ btnIn.classList.add("btn-primary"); btnOut.classList.remove("btn-primary"); }
+  else               { btnOut.classList.add("btn-primary"); btnIn.classList.remove("btn-primary"); }
+}
+
+/* توحيد الحركة لإرسالها للشيت (نحو: حضور/انصراف) */
+function normalizeAction(a){
+  if (!a) return "حضور";
+  a = a.trim();
+  if (a === "دخول" || /^in$/i.test(a) || a === "حضور") return "حضور";
+  return "انصراف";
 }
 
 /* ========= زر تسجيل الآن ========= */
 if (submitBtn){ submitBtn.addEventListener("click", onSubmit); }
 
 async function onSubmit(){
-  if (hint) hint.textContent="";
-  const name=(employeeSelect?.value||"").trim();
-  if(!name){ return setStatus("err","اختر اسم الموظف أولًا."); }
+  if (hint) hint.textContent="";
+  const name=(employeeSelect?.value||"").trim();
+  if(!name){ return setStatus("err","اختر اسم الموظف أولًا."); }
 
-  if(!ZAPIER_WEBHOOK_URL.startsWith("https://hooks.zapier.com/hooks/catch/")){
-    return setStatus("err","رابط Zapier Webhook غير مضبوط.");
-  }
+  if(!SHEETS_ENDPOINT.startsWith("https://script.google.com/macros/s/")){
+    return setStatus("err","رابط Web App غير مضبوط.");
+  }
 
-  setStatus("warn","جارٍ تحديد الموقع...");
-  try{
-    const pos = await getBestPosition({ desiredAccuracy: 120, hardTimeoutMs: 15000 });
-    const { latitude, longitude, accuracy } = pos.coords;
+  setStatus("warn","جارٍ تحديد الموقع...");
+  try{
+    const pos = await getBestPosition({ desiredAccuracy: 120, hardTimeoutMs: 15000 });
+    const { latitude, longitude, accuracy } = pos.coords;
 
-    const pretty = await reverseGeocodePrecise(latitude, longitude);
+    const pretty = await reverseGeocodePrecise(latitude, longitude);
 
-    const now = new Date();
-    const record = {
-      name,
-      action: currentAction,
-      address_text: pretty.text,
-      lat: latitude,
-      lon: longitude,
-      accuracy: Math.round(accuracy),
-      timestamp_iso: now.toISOString()
-    };
+    const now = new Date();
+    const normalized = normalizeAction(currentAction);
 
-    if (SAVE_LOCALLY) upsertLocalRecord(record);
+    // بنسجل محليًا بنفس الشكل للعرض
+    const record = {
+      name,
+      action: normalized,              // نخزن الحركة موحّدة (حضور/انصراف)
+      address_text: pretty.text,
+      lat: latitude,
+      lon: longitude,
+      accuracy: Math.round(accuracy),
+      timestamp_iso: now.toISOString()
+    };
 
-    await sendToZapier(record);
+    if (SAVE_LOCALLY) upsertLocalRecord(record);
 
-    setStatus("ok","تم التسجيل بنجاح.");
-    if (accuracyBadge) accuracyBadge.textContent = `دقة: ${record.accuracy}م`;
-    if (hint)           hint.textContent = `الموقع: ${record.address_text}`;
-    if (SHOW_LOCAL_LOG) renderLocalLog();
+    // نرسل للشيت
+    await sendToSheets({
+      name: name,
+      location: pretty.text,
+      action: normalized,
+      client_time: now.toISOString()
+    });
 
-  }catch(err){
-    console.error(err);
-    setStatus("err","تعذّر تحديد الموقع بدقة. فعّل GPS وحاول مجددًا.");
-    if (accuracyBadge) accuracyBadge.textContent = "دقة: —";
-  }
+    setStatus("ok","تم التسجيل بنجاح.");
+    if (accuracyBadge) accuracyBadge.textContent = `دقة: ${record.accuracy}م`;
+    if (hint)          hint.textContent = `الموقع: ${record.address_text}`;
+    if (SHOW_LOCAL_LOG) renderLocalLog();
+
+  }catch(err){
+    console.error(err);
+    setStatus("err","تعذّر تحديد الموقع بدقة. فعّل GPS وحاول مجددًا.");
+    if (accuracyBadge) accuracyBadge.textContent = "دقة: —";
+  }
 }
 
-/* ========= إرسال إلى Zapier Webhook ========= */
-async function sendToZapier(record){
-  try {
-    const res = await fetch(ZAPIER_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Accept": "application/json" },
-      body: JSON.stringify(record)
-    });
-    try { console.log("Zapier response:", await res.clone().text()); } catch(_) {}
-  } catch (e) {
-    console.error("Zapier webhook error", e);
-  }
+/* ========= إرسال إلى Google Sheets (Apps Script) ========= */
+async function sendToSheets({name, location, action, client_time}){
+  const body = new URLSearchParams({ name, location, action, client_time }).toString();
+  const res = await fetch(SHEETS_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+    body
+  });
+  // نحاول نقرأ رد JSON إن وُجد (مش دايمًا Apps Script بيرجّع JSON مضبوط)
+  try {
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "Server error");
+  } catch (_) { /* تجاهل لو مش JSON */ }
 }
 
-/* ========= زر اختبار (اختياري من الكونسول) ========= */
+/* ========= زر اختبار (من الكونسول) ========= */
 window.sendTest = function(){
-  fetch(ZAPIER_WEBHOOK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: "Mahmoud Ibrahim",
-      action: "دخول",
-      timestamp_iso: new Date().toISOString(),
-      address_text: "مصر – الجيزة – شارع الجمهورية",
-      lat: 30.0444,
-      lon: 31.2357,
-      accuracy: 15
-    })
-  })
-  .then(r => r.text())
-  .then(t => alert("تم الإرسال: " + t))
-  .catch(console.error);
+  const body = new URLSearchParams({
+    name: "Mahmoud Ibrahim",
+    location: "مصر – الجيزة – شارع الجمهورية",
+    action: "حضور",
+    client_time: new Date().toISOString()
+  }).toString();
+
+  fetch(SHEETS_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+    body
+  })
+  .then(r => r.text())
+  .then(t => alert("تم الإرسال: " + t))
+  .catch(console.error);
 }
 
 /* ========= تحديد الموقع (أفضل نتيجة خلال مهلة) ========= */
 function getBestPosition({ desiredAccuracy = 120, hardTimeoutMs = 15000 } = {}) {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) return reject(new Error("Geolocation unavailable"));
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error("Geolocation unavailable"));
 
-    let best = null;
-    let resolved = false;
+    let best = null;
+    let resolved = false;
 
-    const success = (pos) => {
-      const { accuracy } = pos.coords;
-      if (!best || accuracy < best.coords.accuracy) best = pos;
+    const success = (pos) => {
+      const { accuracy } = pos.coords;
+      if (!best || accuracy < best.coords.accuracy) best = pos;
 
-      if (accuracyBadge) {
-        accuracyBadge.classList.remove("ok","warn","err");
-        if (accuracy <= desiredAccuracy)      accuracyBadge.classList.add("ok");
-        else if (accuracy <= 200)             accuracyBadge.classList.add("warn");
-        else                                  accuracyBadge.classList.add("err");
-        accuracyBadge.textContent = `دقة: ${Math.round(accuracy)}م`;
-      }
+      if (accuracyBadge) {
+        accuracyBadge.classList.remove("ok","warn","err");
+        if (accuracy <= desiredAccuracy)      accuracyBadge.classList.add("ok");
+        else if (accuracy <= 200)             accuracyBadge.classList.add("warn");
+        else                                  accuracyBadge.classList.add("err");
+        accuracyBadge.textContent = `دقة: ${Math.round(accuracy)}م`;
+      }
 
-      if (!resolved && accuracy <= desiredAccuracy) {
-        resolved = true;
-        navigator.geolocation.clearWatch(wid);
-        clearTimeout(timer);
-        resolve(pos);
-      }
-    };
+      if (!resolved && accuracy <= desiredAccuracy) {
+        resolved = true;
+        navigator.geolocation.clearWatch(wid);
+        clearTimeout(timer);
+        resolve(pos);
+      }
+    };
 
-    const wid = navigator.geolocation.watchPosition(success, ()=>{}, {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 20000
-    });
+    const wid = navigator.geolocation.watchPosition(success, ()=>{}, {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 20000
+    });
 
-    const timer = setTimeout(() => {
-      navigator.geolocation.clearWatch(wid);
-      if (best) resolve(best);
-      else reject(new Error("Timeout: لم نتمكن من الحصول على موقع"));
-    }, hardTimeoutMs);
-  });
+    const timer = setTimeout(() => {
+      navigator.geolocation.clearWatch(wid);
+      if (best) resolve(best);
+      else reject(new Error("Timeout: لم نتمكن من الحصول على موقع"));
+    }, hardTimeoutMs);
+  });
 }
 
 /* ========= عكس الترميز (عنوان عربي مرتب) ========= */
 async function reverseGeocodePrecise(lat, lon) {
-  const url = `https://nominatim.openstreetmap.org/reverse?format=json&accept-language=ar&zoom=18&addressdetails=1&lat=${lat}&lon=${lon}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Reverse geocoding failed");
-  const data = await res.json();
-  const a = data.address || {};
-  const country     = a.country || "";
-  const governorate = a.state || a.region || a.county || a.province || a.state_district || "";
-  const city        = a.city || a.town || a.village || a.municipality || a.city_district || "";
-  const exact       = [a.road, a.house_number, a.neighbourhood, a.suburb, a.quarter, a.building]
-                      .filter(Boolean).join("، ");
-  const text = [country, governorate, exact || city].filter(Boolean).join(" – ");
-  return { text: text || (data.display_name || "").replaceAll(",", " – ") || "غير محدد" };
+  const url = `https://nominatim.openstreetmap.org/reverse?format=json&accept-language=ar&zoom=18&addressdetails=1&lat=${lat}&lon=${lon}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Reverse geocoding failed");
+  const data = await res.json();
+  const a = data.address || {};
+  const country     = a.country || "";
+  const governorate = a.state || a.region || a.county || a.province || a.state_district || "";
+  const city        = a.city || a.town || a.village || a.municipality || a.city_district || "";
+  const exact       = [a.road, a.house_number, a.neighbourhood, a.suburb, a.quarter, a.building]
+                       .filter(Boolean).join("، ");
+  const text = [country, governorate, exact || city].filter(Boolean).join(" – ");
+  return { text: text || (data.display_name || "").replaceAll(",", " – ") || "غير محدد" };
 }
 
 /* ========= السجل المحلي ========= */
 function getLocalMap(){
-  try{ return JSON.parse(localStorage.getItem("attendanceLastByName") || "{}"); }
-  catch{ return {}; }
+  try{ return JSON.parse(localStorage.getItem("attendanceLastByName") || "{}"); }
+  catch{ return {}; }
 }
 function setLocalMap(map){ localStorage.setItem("attendanceLastByName", JSON.stringify(map)); }
 function upsertLocalRecord(rec){ const map=getLocalMap(); map[rec.name]=rec; setLocalMap(map); }
 function getLastRecordFor(name){ return getLocalMap()[name] || null; }
 
 function renderLocalLog(){
-  if (!SHOW_LOCAL_LOG || !logBody) return;
-  const selected=(employeeSelect?.value||"").trim();
-  logBody.innerHTML="";
-  if (!selected){
-    logBody.innerHTML="<div class='empty'>اختر اسمًا لعرض آخر تسجيل له</div>"; return;
-  }
-  const r=getLastRecordFor(selected);
-  if (!r){
-    logBody.innerHTML="<div class='empty'>لا يوجد تسجيل سابق لهذا الموظف</div>"; return;
-  }
-  const wrap=document.createElement("div"); wrap.className="row-item";
-  wrap.innerHTML=`
-    <div>${r.name}</div>
-    <div><span class="badge ${r.action==="دخول"?"in":"out"}">${r.action}</span></div>
-    <div class="location">${r.address_text||"—"}</div>
-    <div class="time"><span style="direction:ltr;">${new Date(r.timestamp_iso).toLocaleString("ar-EG")}</span></div>
-  `;
-  logBody.appendChild(wrap);
+  if (!SHOW_LOCAL_LOG || !logBody) return;
+  const selected=(employeeSelect?.value||"").trim();
+  logBody.innerHTML="";
+  if (!selected){
+    logBody.innerHTML="<div class='empty'>اختر اسمًا لعرض آخر تسجيل له</div>"; return;
+  }
+  const r=getLastRecordFor(selected);
+  if (!r){
+    logBody.innerHTML="<div class='empty'>لا يوجد تسجيل سابق لهذا الموظف</div>"; return;
+  }
+  const wrap=document.createElement("div"); wrap.className="row-item";
+  wrap.innerHTML=`
+    <div>${r.name}</div>
+    <div><span class="badge ${r.action==="حضور"?"in":"out"}">${r.action}</span></div>
+    <div class="location">${r.address_text||"—"}</div>
+    <div class="time"><span style="direction:ltr;">${new Date(r.timestamp_iso).toLocaleString("ar-EG")}</span></div>
+  `;
+  logBody.appendChild(wrap);
 }
 
 /* ========= حالة الواجهة ========= */
 function setStatus(kind, text){
-  if (!statusDot) return;
-  statusDot.classList.remove("ok","warn","err");
-  statusDot.classList.add(kind);
-  statusDot.textContent=text;
+  if (!statusDot) return;
+  statusDot.classList.remove("ok","warn","err");
+  statusDot.classList.add(kind);
+  statusDot.textContent=text;
 }
